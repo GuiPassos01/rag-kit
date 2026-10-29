@@ -11,7 +11,11 @@ export interface GeminiEmbedderOptions {
   batchSize?: number;
   timeoutMs?: number;
   retries?: number;
+  /** Cota do plano gratuito: cada texto do lote conta como uma requisição. */
+  textsPerMinute?: number;
 }
+
+const WINDOW_MS = 60_000;
 
 interface BatchEmbedResponse {
   embeddings?: Array<{ values?: number[] }>;
@@ -23,6 +27,7 @@ const DOCUMENT_PREFIX = "title: none | text: ";
 export class GeminiEmbedder implements Embedder {
   readonly model: string;
   readonly dimensions: number;
+  private readonly sent: Array<{ at: number; count: number }> = [];
 
   constructor(private readonly options: GeminiEmbedderOptions) {
     this.model = options.model;
@@ -30,7 +35,10 @@ export class GeminiEmbedder implements Embedder {
   }
 
   async embedDocuments(texts: string[]): Promise<number[][]> {
-    const batchSize = this.options.batchSize ?? 50;
+    const batchSize = Math.min(
+      this.options.batchSize ?? 50,
+      this.textsPerMinute,
+    );
     const embeddings: number[][] = [];
     for (let start = 0; start < texts.length; start += batchSize) {
       const batch = texts
@@ -51,7 +59,27 @@ export class GeminiEmbedder implements Embedder {
     return embedding;
   }
 
+  private get textsPerMinute(): number {
+    return this.options.textsPerMinute ?? 100;
+  }
+
+  /** Espera até o lote caber na janela de 60s, para não estourar a cota e cair no 429. */
+  private async waitForQuota(count: number): Promise<void> {
+    for (;;) {
+      const now = Date.now();
+      while (this.sent[0] && now - this.sent[0].at >= WINDOW_MS)
+        this.sent.shift();
+      const used = this.sent.reduce((sum, entry) => sum + entry.count, 0);
+      if (used + count <= this.textsPerMinute || !this.sent[0]) {
+        this.sent.push({ at: now, count });
+        return;
+      }
+      await Bun.sleep(this.sent[0].at + WINDOW_MS - now);
+    }
+  }
+
   private async embed(texts: string[]): Promise<number[][]> {
+    await this.waitForQuota(texts.length);
     const response = await post(
       `${BASE_URL}/${this.model}:batchEmbedContents`,
       {
