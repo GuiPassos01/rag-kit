@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rag-kit</title>
+<style>
+  :root {
+    --bg: #f4f5f8;
+    --panel: #ffffff;
+    --panel-2: #f8f9fb;
+    --border: #e4e7ec;
+    --border-strong: #cfd5de;
+    --text: #1c2230;
+    --muted: #667085;
+    --faint: #a3abb9;
+    --accent: #2f6bed;
+    --accent-strong: #245ad0;
+    --accent-soft: #e8efff;
+    --vector: #7a5af0;
+    --fulltext: #0e9384;
+    --ok: #16a34a;
+    --warn: #c2860a;
+    --error: #d93d3d;
+    --mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; flex-direction: column;
+    background: var(--bg); color: var(--text);
+    font: 14px/1.5 Inter, 'Segoe UI', system-ui, sans-serif;
+  }
+  button, input, select { font: inherit; color: inherit; }
+
+  header {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  .brand { font-weight: 650; font-size: 15px; letter-spacing: -0.01em; }
+  .tagline { color: var(--muted); font-size: 13px; }
+  .header-actions { margin-left: auto; display: flex; gap: 16px; align-items: center; }
+  .api-status { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+  .api-status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+  .api-status[data-ok='true']::before { background: var(--ok); }
+  .api-status[data-ok='false']::before { background: var(--error); }
+  .field { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+
+  select, input[type='text'] {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; outline: none;
+  }
+  select:focus, input[type='text']:focus {
+    border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .btn {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 12px; cursor: pointer; white-space: nowrap;
+  }
+  .btn:hover:not(:disabled) { border-color: var(--border-strong); background: var(--panel-2); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .btn.primary:hover:not(:disabled) { background: var(--accent-strong); border-color: var(--accent-strong); }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+
+  .layout { flex: 1; display: grid; grid-template-columns: 280px minmax(0, 1fr); }
+
+  .sidebar { background: var(--panel); border-right: 1px solid var(--border); padding: 20px; display: grid; gap: 20px; align-content: start; }
+  .step + .step { border-top: 1px solid var(--border); padding-top: 20px; }
+  .step h2 { margin: 0 0 12px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .step h2 span {
+    width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center;
+    background: var(--accent-soft); color: var(--accent); font-size: 11px; font-weight: 700;
+  }
+  .step p { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+  .ask-form { display: grid; gap: 8px; }
+  .ask-form input { width: 100%; padding: 9px 12px; }
+  .examples-title { margin: 16px 0 4px; font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.06em; }
+  .examples { display: grid; }
+  .example {
+    text-align: left; background: none; border: none; border-radius: 6px;
+    padding: 6px 8px; margin: 0 -8px; color: var(--muted); font-size: 13px; cursor: pointer;
+  }
+  .example:hover { background: var(--panel-2); color: var(--text); }
+  #reindex { width: 100%; }
+
+  .canvas { padding: 20px 24px 40px; display: grid; gap: 16px; align-content: start; min-width: 0; }
+  .banner { padding: 10px 14px; border-radius: 10px; border: 1px solid #f3c4c4; color: var(--error); background: #fdf1f1; }
+  .banner[hidden] { display: none; }
+
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  .stage-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .stage-head h2 { margin: 0; font-size: 14px; }
+  .stage-head .hint { color: var(--faint); font-size: 12.5px; }
+  .diagram-scroll { overflow-x: auto; }
+  .diagram { position: relative; display: grid; gap: 28px 40px; min-width: 920px; padding: 8px 4px; }
+  .wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+  .wire { fill: none; stroke: var(--border-strong); stroke-width: 1.25; transition: stroke 0.2s; }
+  .wire.lit { stroke: var(--accent); }
+  .port { fill: var(--panel); stroke: var(--border-strong); stroke-width: 1.25; }
+  .packet-label { font: 10.5px var(--mono); fill: var(--muted); paint-order: stroke; stroke: var(--panel); stroke-width: 4px; }
+
+  .node {
+    position: relative; z-index: 1; text-align: left; cursor: pointer;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 9px 11px; min-height: 62px; display: flex; flex-direction: column; gap: 2px;
+    box-shadow: 0 1px 2px rgb(16 24 40 / 0.04);
+    transition: border-color 0.2s, box-shadow 0.2s, opacity 0.2s;
+  }
+  .node:hover { border-color: var(--border-strong); }
+  .node.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .node-top { display: flex; align-items: center; gap: 7px; }
+  .node-top::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong); }
+  .node-title { font-weight: 600; font-size: 12.5px; }
+  .node-badge { margin-left: auto; font-size: 11px; color: var(--faint); }
+  .node-note { font-size: 11px; color: var(--faint); }
+  .node-meta { font-size: 11.5px; color: var(--muted); font-family: var(--mono); overflow-wrap: anywhere; }
+  .node[data-status='active'] .node-top::before { background: var(--accent); animation: blink 1s ease-in-out infinite; }
+  .node[data-status='done'] .node-top::before { background: var(--ok); }
+  .node[data-status='skipped'] { opacity: 0.5; border-style: dashed; }
+  .node[data-status='error'] { border-color: var(--error); }
+  .node[data-status='error'] .node-top::before { background: var(--error); }
+  .node[data-status='error'] .node-meta { color: var(--error); }
+  .node[data-kind='vector'] .node-title { color: var(--vector); }
+  .node[data-kind='fulltext'] .node-title { color: var(--fulltext); }
+
+  .bottom { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .panel { min-height: 240px; }
+  .panel h3 { margin: 0 0 4px; font-size: 14px; }
+  .panel h4 { margin: 18px 0 8px; font-size: 11px; font-weight: 600; color: var(--faint); text-transform: uppercase; letter-spacing: 0.06em; }
+  .explain { color: var(--muted); margin: 0 0 12px; }
+  .empty { color: var(--faint); }
+  .kv { display: flex; flex-wrap: wrap; gap: 6px 18px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .kv b { color: var(--text); font-weight: 500; }
+  pre {
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    font: 12px/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; margin: 0;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; color: var(--faint); font-weight: 500; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  td { padding: 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  td.num { font-family: var(--mono); text-align: right; white-space: nowrap; }
+  td.label { overflow-wrap: anywhere; }
+  tr.dropped td { opacity: 0.4; text-decoration: line-through; }
+  .bar { position: relative; height: 6px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; min-width: 80px; }
+  .bar span { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--vector); }
+  .bar i { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--warn); }
+  .vec { display: flex; align-items: center; gap: 3px; height: 90px; padding: 0 2px; }
+  .vec div { flex: 1; position: relative; height: 100%; }
+  .vec span { position: absolute; left: 0; right: 0; border-radius: 2px; }
+  .vec .pos { bottom: 50%; background: var(--accent); }
+  .vec .neg { top: 50%; background: var(--vector); }
+  .formula { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }
+
+  .answer { font-size: 15px; line-height: 1.65; min-height: 48px; }
+  .answer.not-found { color: var(--warn); }
+  .answer.error { color: var(--error); }
+  .caret { display: inline-block; width: 7px; height: 1em; background: var(--accent); vertical-align: text-bottom; animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0.25; } }
+  .cite {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 18px; padding: 0 4px;
+    margin: 0 1px; border-radius: 5px; border: none; background: var(--accent-soft);
+    color: var(--accent); font: 600 11px var(--mono); cursor: pointer; vertical-align: 1px;
+  }
+  .sources { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .source { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; transition: border-color 0.3s, background 0.3s; }
+  .source.flash { border-color: var(--accent); background: var(--accent-soft); }
+  .source-head { display: flex; gap: 8px; align-items: baseline; font-weight: 600; font-size: 13px; }
+  .source p { margin: 4px 0 0; color: var(--muted); font-size: 12.5px; }
+  .report { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .report div { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px; }
+  .report b { display: block; font-size: 20px; font-weight: 600; font-family: var(--mono); }
+  .report span { color: var(--muted); font-size: 12px; }
+  .log { list-style: none; margin: 0; padding: 0; font: 12px/1.7 var(--mono); max-height: 260px; overflow: auto; }
+  .log .tag { display: inline-block; min-width: 92px; }
+  .tag.added { color: var(--ok); } .tag.updated { color: var(--accent); } .tag.unchanged { color: var(--faint); }
+  .tag.empty { color: var(--warn); } .tag.removed { color: var(--error); }
+
+  @media (max-width: 960px) {
+    header { padding: 12px 16px; }
+    .header-actions { margin-left: 0; width: 100%; justify-content: space-between; }
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { border-right: none; border-bottom: 1px solid var(--border); padding: 16px; }
+    .canvas { padding: 16px 16px 32px; }
+    .bottom { grid-template-columns: 1fr; }
+    .report { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">rag-kit</div>
+  <div class="tagline">o caminho do dado, etapa por etapa</div>
+  <div class="header-actions">
+    <span class="api-status" id="api-status">API</span>
+    <label class="field">Coleção <select id="collection"></select></label>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <section class="step">
+      <h2><span>1</span>Pergunta</h2>
+      <form class="ask-form" id="ask-form">
+        <input type="text" id="question" placeholder="Pergunte algo sobre a coleção…" maxlength="2000" autocomplete="off">
+        <button class="btn primary" id="ask" type="submit">Perguntar</button>
+      </form>
+      <div id="examples"></div>
+    </section>
+
+    <section class="step">
+      <h2><span>2</span>Ingestão</h2>
+      <p>Lê a pasta da coleção e indexa só o que mudou desde a última vez.</p>
+      <button class="btn" id="reindex" type="button">Reindexar</button>
+    </section>
+  </aside>
+
+  <main class="canvas">
+    <div class="banner" id="banner" hidden></div>
+
+    <section class="card">
+      <div class="stage-head">
+        <h2 id="stage-title">Consulta</h2>
+        <span class="hint">Clique numa etapa para ver o que passou por ela.</span>
+      </div>
+      <div class="diagram-scroll">
+        <div class="diagram" id="diagram"></div>
+      </div>
+    </section>
+
+    <section class="bottom">
+      <div class="card panel" id="result"></div>
+      <div class="card panel" id="inspector"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+const EXAMPLES = {
+  'central-de-ajuda': [
+    'Como cancelo minha assinatura?',
+    'O que significa o erro PAG-402?',
+    'Os lembretes funcionam pelo WhatsApp?',
+    'Qual a capital da França?',
+  ],
+};
+
+const QUERY = {
+  title: 'Consulta',
+  cols: 7,
+  nodes: [
+    { id: 'question', title: 'Pergunta', col: 1, row: 2,
+      explain: 'Sua pergunta, em texto. Ela vai virar um vetor para ser comparada com os trechos indexados.' },
+    { id: 'embedding', title: 'Embedding', col: 2, row: 2,
+      explain: 'O modelo de embedding transforma o texto numa lista de números (um vetor). Textos com significado parecido geram vetores próximos, mesmo sem palavras em comum.' },
+    { id: 'vector', title: 'Busca vetorial', col: 3, row: 1, kind: 'vector', note: 'pgvector · HNSW',
+      explain: 'Compara o vetor da pergunta com o de cada trecho pela similaridade de cosseno, no pgvector (índice HNSW). Acha pelo significado. O que fica abaixo do limiar (RAG_MIN_SIMILARITY) é descartado.' },
+    { id: 'text', title: 'Busca full-text', col: 3, row: 3, kind: 'fulltext', note: 'Postgres · GIN',
+      explain: 'Procura as palavras da pergunta no índice full-text do Postgres (tsvector, índice GIN), em paralelo com a vetorial. Pega termos exatos, como códigos de erro, que a busca vetorial costuma perder.' },
+    { id: 'fusion', title: 'Fusão RRF', col: 4, row: 2,
+      explain: 'Reciprocal Rank Fusion: junta as duas listas usando só a posição de cada trecho, score = Σ 1/(60 + posição). Quem aparece bem nas duas sobe. Ficam os top-k.' },
+    { id: 'prompt', title: 'Prompt', col: 5, row: 2,
+      explain: 'Os trechos escolhidos são numerados e colados no prompt, junto com as regras: responder só com base neles e citar a fonte com [n].' },
+    { id: 'llm', title: 'LLM', col: 6, row: 2,
+      explain: 'O LLM lê o prompt e escreve a resposta em streaming. Ele não consulta a base: só enxerga os trechos que vieram no prompt.' },
+    { id: 'answer', title: 'Resposta', col: 7, row: 2,
+      explain: 'O texto final, com citações [n] que apontam para as fontes. Clique numa citação para ver o trecho.' },
+  ],
+  edges: [
+    ['question', 'embedding'], ['embedding', 'vector'], ['embedding', 'text'],
+    ['vector', 'fusion'], ['text', 'fusion'], ['fusion', 'prompt'], ['prompt', 'llm'], ['llm', 'answer'],
+  ],
+};
+
+const INGEST = {
+  title: 'Ingestão',
+  cols: 6,
+  nodes: [
+    { id: 'folder', title: 'Pasta', col: 1, row: 1,
+      explain: 'collections/<nome>: os arquivos .md, .txt e .pdf da coleção.' },
+    { id: 'loader', title: 'Loader', col: 2, row: 1,
+      explain: 'Lê cada arquivo. .md e .txt viram um documento; .pdf vira um documento por página, para a citação apontar a página certa.' },
+    { id: 'hash', title: 'Mudou? (sha256)', col: 3, row: 1,
+      explain: 'Calcula o hash do conteúdo e compara com o que está no banco. Se for igual, pula: não gasta embedding com o que não mudou.' },
+    { id: 'chunker', title: 'Chunker', col: 4, row: 1,
+      explain: 'Quebra o documento em trechos. Markdown por seção, com o caminho de títulos no começo; PDF e texto por tamanho fixo com sobreposição.' },
+    { id: 'embedder', title: 'Embedder', col: 5, row: 1,
+      explain: 'Gera um vetor para cada trecho, em lote.' },
+    { id: 'store', title: 'Postgres + pgvector', col: 6, row: 1,
+      explain: 'Numa transação, apaga os trechos antigos do documento e grava os novos. No fim, remove do banco o que sumiu da pasta.' },
+    { id: 'skip', title: 'Ignorados', col: 4, row: 2,
+      explain: 'Documentos sem mudança (hash igual) ou vazios, como PDF escaneado sem texto.' },
+  ],
+  edges: [
+    ['folder', 'loader'], ['loader', 'hash'], ['hash', 'chunker'], ['chunker', 'embedder'], ['embedder', 'store'],
+    ['hash', 'skip'], ['chunker', 'skip'],
+  ],
+};
+
+const $ = (id) => document.getElementById(id);
+const diagramEl = $('diagram');
+const inspectorEl = $('inspector');
+const resultEl = $('result');
+const SVG = 'http://www.w3.org/2000/svg';
+
+const esc = (value) => String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const fixed = (n, digits = 3) => (typeof n === 'number' ? n.toFixed(digits) : '—');
+
+let layout = QUERY;
+let nodeEls = new Map();
+let wires = new Map();
+let selected = null;
+let busy = false;
+let run = {};
+
+function storage(key, value) {
+  try {
+    if (value === undefined) return localStorage.getItem(key);
+    localStorage.setItem(key, value);
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/* ---------- fila de animação: os dados chegam rápido, a tela mostra em ritmo de leitura ---------- */
+
+let chain = Promise.resolve();
+let pending = 0;
+
+function enqueue(task) {
+  pending++;
+  chain = chain.then(task).catch((error) => console.error(error)).finally(() => pending--);
+}
+
+async function idle() {
+  let current;
+  do {
+    current = chain;
+    await current;
+  } while (current !== chain);
+}
+
+// Quando o primeiro token chega, a resposta tem prioridade: o diagrama pula para o fim.
+function hopMs() {
+  if (run.fastForward) return 0;
+  const base = layout === QUERY ? 700 : 380;
+  return Math.max(110, base / Math.max(1, pending / 4));
+}
+
+/* ---------- diagrama ---------- */
+
+function renderDiagram(next) {
+  layout = next;
+  diagramEl.innerHTML = '';
+  diagramEl.style.gridTemplateColumns = `repeat(${next.cols}, minmax(0, 1fr))`;
+  const svg = document.createElementNS(SVG, 'svg');
+  svg.classList.add('wires');
+  svg.id = 'wires';
+  // Camadas fixas: fios atrás, portas por cima deles, pacotes por cima de tudo.
+  for (const id of ['wire-layer', 'port-layer']) {
+    const group = document.createElementNS(SVG, 'g');
+    group.id = id;
+    svg.append(group);
+  }
+  diagramEl.append(svg);
+
+  nodeEls = new Map();
+  for (const node of next.nodes) {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'node';
+    el.dataset.status = 'idle';
+    if (node.kind) el.dataset.kind = node.kind;
+    el.style.gridColumn = String(node.col);
+    el.style.gridRow = String(node.row);
+    const note = node.note ? `<span class="node-note">${esc(node.note)}</span>` : '';
+    el.innerHTML = `<span class="node-top"><span class="node-title">${esc(node.title)}</span><span class="node-badge"></span></span>${note}<span class="node-meta"></span>`;
+    el.addEventListener('click', () => select(node.id));
+    diagramEl.append(el);
+    nodeEls.set(node.id, el);
+  }
+  $('stage-title').textContent = next.title;
+  requestAnimationFrame(drawWires);
+}
+
+function anchor(rect, side, origin) {
+  const x = rect.left - origin.left;
+  const y = rect.top - origin.top;
+  if (side === 'right') return { x: x + rect.width, y: y + rect.height / 2 };
+  if (side === 'left') return { x, y: y + rect.height / 2 };
+  if (side === 'bottom') return { x: x + rect.width / 2, y: y + rect.height };
+  return { x: x + rect.width / 2, y };
+}
+
+function port({ x, y }) {
+  const circle = document.createElementNS(SVG, 'circle');
+  circle.classList.add('port');
+  circle.setAttribute('cx', x);
+  circle.setAttribute('cy', y);
+  circle.setAttribute('r', '3.5');
+  return circle;
+}
+
+function drawWires() {
+  const svg = $('wires');
+  if (!svg) return;
+  const origin = diagramEl.getBoundingClientRect();
+  svg.setAttribute('viewBox', `0 0 ${origin.width} ${origin.height}`);
+  const wireLayer = $('wire-layer');
+  const portLayer = $('port-layer');
+  wireLayer.replaceChildren();
+  portLayer.replaceChildren();
+  wires = new Map();
+
+  for (const [from, to] of layout.edges) {
+    const a = nodeEls.get(from).getBoundingClientRect();
+    const b = nodeEls.get(to).getBoundingClientRect();
+    const sameColumn = Math.abs(a.left - b.left) < 4;
+    let p, q, d;
+    if (sameColumn) {
+      const down = b.top > a.top;
+      p = anchor(a, down ? 'bottom' : 'top', origin);
+      q = anchor(b, down ? 'top' : 'bottom', origin);
+      d = `M${p.x},${p.y} L${q.x},${q.y}`;
+    } else {
+      p = anchor(a, 'right', origin);
+      q = anchor(b, 'left', origin);
+      const mid = (p.x + q.x) / 2;
+      d = `M${p.x},${p.y} C${mid},${p.y} ${mid},${q.y} ${q.x},${q.y}`;
+    }
+    const path = document.createElementNS(SVG, 'path');
+    path.classList.add('wire');
+    path.setAttribute('d', d);
+    wireLayer.append(path);
+    portLayer.append(port(p), port(q));
+    wires.set(`${from}>${to}`, path);
+  }
+}
+
+window.addEventListener('resize', () => requestAnimationFrame(drawWires));
+
+function flow(from, to, { label, color = 'var(--accent)' } = {}) {
+  const duration = hopMs();
+  const forward = wires.get(`${from}>${to}`);
+  const path = forward ?? wires.get(`${to}>${from}`);
+  if (!path || duration === 0) return Promise.resolve();
+
+  const svg = $('wires');
+  const dot = document.createElementNS(SVG, 'circle');
+  dot.setAttribute('r', '3.5');
+  dot.style.fill = color;
+  svg.append(dot);
+  let text = null;
+  if (label) {
+    text = document.createElementNS(SVG, 'text');
+    text.classList.add('packet-label');
+    text.setAttribute('text-anchor', 'middle');
+    text.textContent = label.length > 26 ? `${label.slice(0, 25)}…` : label;
+    svg.append(text);
+  }
+  path.classList.add('lit');
+  const length = path.getTotalLength();
+
+  return new Promise((resolve) => {
+    const start = performance.now();
+    const step = (now) => {
+      const t = run.fastForward ? 1 : Math.min(1, (now - start) / duration);
+      const eased = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+      const point = path.getPointAtLength((forward ? eased : 1 - eased) * length);
+      dot.setAttribute('cx', point.x);
+      dot.setAttribute('cy', point.y);
+      text?.setAttribute('x', point.x);
+      text?.setAttribute('y', point.y - 10);
+      if (t < 1) return requestAnimationFrame(step);
+      dot.remove();
+      text?.remove();
+      path.classList.remove('lit');
+      resolve();
+    };
+    requestAnimationFrame(step);
+  });
+}
+
+const BADGES = { idle: '', active: '…', done: '', skipped: 'pulado', error: 'erro' };
+
+function setNode(id, status, meta) {
+  const el = nodeEls.get(id);
+  if (!el) return;
+  el.dataset.status = status;
+  el.querySelector('.node-badge').textContent = BADGES[status];
+  if (meta !== undefined) el.querySelector('.node-meta').textContent = meta;
+}
+
+function select(id) {
+  selected = id;
+  for (const [nodeId, el] of nodeEls) el.classList.toggle('selected', nodeId === id);
+  renderInspector();
+}
+
+/* ---------- painel da etapa ---------- */
+
+function hitsTable(hits, columns) {
+  if (hits.length === 0) return '<p class="empty">Nenhum candidato.</p>';
+  const head = columns.map((c) => `<th>${c.title}</th>`).join('');
+  const rows = hits.map((hit, i) =>
+    `<tr class="${hit.kept === false ? 'dropped' : ''}" title="${esc(hit.excerpt)}">${columns.map((c) => c.cell(hit, i)).join('')}</tr>`).join('');
+  return `<table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+const INSPECTORS = {
+  question: (d) => d ? `<pre>${esc(d.question)}</pre>` : '',
+
+  embedding: (d) => {
+    if (!d) return '';
+    const max = Math.max(...d.preview.map(Math.abs), 1e-9);
+    const bars = d.preview.map((v) => {
+      const h = (Math.abs(v) / max) * 50;
+      return `<div title="${v}"><span class="${v >= 0 ? 'pos' : 'neg'}" style="height:${h}%"></span></div>`;
+    }).join('');
+    return `<div class="kv"><span>modelo <b>${esc(d.model)}</b></span><span>dimensões <b>${d.dimensions}</b></span><span>tempo <b>${d.ms} ms</b></span></div>
+      <h4>Os ${d.preview.length} primeiros números do vetor (de ${d.dimensions})</h4>
+      <div class="vec">${bars}</div>
+      <pre>[${d.preview.map((v) => v.toFixed(4)).join(', ')}, …]</pre>`;
+  },
+
+  vector: (d) => {
+    if (!d) return '';
+    const kept = d.hits.filter((h) => h.kept).length;
+    return `<div class="kv"><span>candidatos <b>${d.hits.length}</b></span><span>acima do limiar <b>${kept}</b></span><span>limiar <b>${d.minSimilarity}</b></span><span>tempo <b>${d.ms} ms</b></span></div>
+      <h4>Similaridade de cosseno · a linha amarela é o limiar</h4>
+      ${hitsTable(d.hits, [
+        { title: '#', cell: (_, i) => `<td class="num">${i + 1}</td>` },
+        { title: 'trecho', cell: (h) => `<td class="label">${esc(h.label)}</td>` },
+        { title: '', cell: (h) => `<td><div class="bar"><span style="width:${Math.max(0, h.score) * 100}%"></span><i style="left:${d.minSimilarity * 100}%"></i></div></td>` },
+        { title: 'cosseno', cell: (h) => `<td class="num">${fixed(h.score)}</td>` },
+      ])}`;
+  },
+
+  text: (d) => {
+    if (!d) return '';
+    if (!d.enabled) return '<p class="empty">Desligada (RAG_HYBRID=false): só a busca vetorial conta.</p>';
+    return `<div class="kv"><span>candidatos <b>${d.hits.length}</b></span><span>tempo <b>${d.ms} ms</b></span></div>
+      <h4>ts_rank_cd · não tem teto, por isso não dá para somar com o cosseno</h4>
+      ${hitsTable(d.hits, [
+        { title: '#', cell: (_, i) => `<td class="num">${i + 1}</td>` },
+        { title: 'trecho', cell: (h) => `<td class="label">${esc(h.label)}</td>` },
+        { title: 'rank', cell: (h) => `<td class="num">${fixed(h.score, 4)}</td>` },
+      ])}`;
+  },
+
+  fusion: (d) => {
+    if (!d) return '';
+    if (d.hits.length === 0) return '<p class="empty">Nenhum trecho passou: a vetorial ficou toda abaixo do limiar e a full-text não achou nada. O LLM não será chamado.</p>';
+    const formula = (h) => [h.vectorRank, h.textRank].filter((r) => r !== null).map((r) => `1/(60+${r})`).join(' + ');
+    return `<div class="kv"><span>top-k <b>${d.topK}</b></span><span>escolhidos <b>${d.hits.length}</b></span></div>
+      <h4>Posição em cada lista → score final</h4>
+      ${hitsTable(d.hits, [
+        { title: '#', cell: (_, i) => `<td class="num">${i + 1}</td>` },
+        { title: 'trecho', cell: (h) => `<td class="label">${esc(h.label)}<div class="formula">${formula(h)}</div></td>` },
+        { title: 'vetorial', cell: (h) => `<td class="num" style="color:var(--vector)">${h.vectorRank ? `${h.vectorRank}º` : '—'}</td>` },
+        { title: 'full-text', cell: (h) => `<td class="num" style="color:var(--fulltext)">${h.textRank ? `${h.textRank}º` : '—'}</td>` },
+        { title: 'RRF', cell: (h) => `<td class="num">${fixed(h.score, 4)}</td>` },
+      ])}`;
+  },
+
+  prompt: (d) => {
+    if (!d) return '';
+    if (d.skipped) return '<p class="empty">Não montado: não havia trecho relevante.</p>';
+    const chars = d.system.length + d.user.length;
+    return `<div class="kv"><span>caracteres <b>${chars}</b></span><span>tokens (aprox.) <b>~${Math.round(chars / 4)}</b></span></div>
+      <h4>System</h4><pre>${esc(d.system)}</pre>
+      <h4>User</h4><pre>${esc(d.user)}</pre>`;
+  },
+
+  llm: (d) => {
+    if (!d) return '';
+    if (!d.model) return '<p class="empty">Não chamado: sem trecho relevante, a resposta "não encontrei" sai direto, sem gastar chamada nem dar chance de alucinar.</p>';
+    const ttft = d.firstToken ? `${Math.round(d.firstToken - d.start)} ms` : '…';
+    const total = d.end ? `${((d.end - d.start) / 1000).toFixed(1)} s` : '…';
+    return `<div class="kv"><span>modelo <b>${esc(d.model)}</b></span><span>primeiro token <b>${ttft}</b></span><span>total <b>${total}</b></span><span>pedaços do stream <b>${d.tokens}</b></span></div>`;
+  },
+
+  answer: () => '<p class="empty">A resposta está no painel ao lado.</p>',
+};
+
+function renderInspector() {
+  const node = layout.nodes.find((n) => n.id === selected);
+  if (!node) {
+    inspectorEl.innerHTML = `<h3>Etapa</h3><p class="explain">${layout === QUERY
+      ? 'Faça uma pergunta para ver o caminho do dado. Clique em qualquer etapa para ver o que passou por ela.'
+      : 'Clique numa etapa para ver o que ela faz.'}</p>`;
+    return;
+  }
+  const data = run[node.id];
+  let body = '';
+  if (layout === QUERY) body = INSPECTORS[node.id]?.(data) ?? '';
+  else body = ingestLog();
+  if (data?.error) body = `<pre style="color:var(--error)">${esc(data.error)}</pre>` + body;
+  inspectorEl.innerHTML = `<h3>${esc(node.title)}</h3><p class="explain">${esc(node.explain)}</p>${body || '<p class="empty">Ainda não passou nada por aqui.</p>'}`;
+}
+
+/* ---------- resposta ---------- */
+
+function formatAnswer(text) {
+  return esc(text)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\[(\d+)\]/g, '<button type="button" class="cite" data-n="$1">$1</button>')
+    .replace(/\n/g, '<br>');
+}
+
+function answerClass() {
+  return `answer ${run.failed ? 'error' : run.found === false ? 'not-found' : ''}`;
+}
+
+function answerHtml() {
+  const answer = run.answerText ?? '';
+  const streaming = run.streaming ? '<span class="caret"></span>' : '';
+  return `${answer ? formatAnswer(answer) : (run.started ? '' : '<span class="empty">—</span>')}${streaming}`;
+}
+
+let answerFrame = 0;
+
+/** Tokens chegam em rajada: redesenha só o texto da resposta, no máximo uma vez por quadro. */
+function scheduleAnswer() {
+  if (answerFrame) return;
+  answerFrame = requestAnimationFrame(() => {
+    answerFrame = 0;
+    const el = resultEl.querySelector('.answer');
+    if (!el) return renderResult();
+    el.className = answerClass();
+    el.innerHTML = answerHtml();
+  });
+}
+
+function renderResult() {
+  if (layout === INGEST) return renderIngestResult();
+  const sources = (run.sources ?? []).map((s) => `
+    <li class="source" id="source-${s.index}">
+      <div class="source-head"><span class="cite">${s.index}</span><span>${esc(s.label)}</span></div>
+      <div class="kv"><span>cosseno <b>${fixed(s.similarity)}</b></span><span>RRF <b>${fixed(s.score, 4)}</b></span></div>
+      <p>${esc(s.excerpt)}</p>
+    </li>`).join('');
+  const hint = run.found === false
+    ? '<p class="explain">Nada passou do limiar. Se a coleção ainda não foi indexada, clique em Reindexar.</p>' : '';
+  resultEl.innerHTML = `<h3>Resposta</h3>
+    <div class="${answerClass()}">${answerHtml()}</div>
+    ${hint}
+    ${sources ? `<h4>Fontes</h4><ol class="sources">${sources}</ol>` : ''}`;
+}
+
+resultEl.addEventListener('click', (event) => {
+  const cite = event.target.closest('.cite[data-n]');
+  if (!cite) return;
+  const source = $(`source-${cite.dataset.n}`);
+  if (!source) return;
+  source.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  source.classList.add('flash');
+  setTimeout(() => source.classList.remove('flash'), 1200);
+});
+
+/* ---------- SSE via fetch (EventSource só faz GET) ---------- */
+
+async function* readSse(response) {
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) return;
+    buffer += value.replace(/\r\n/g, '\n');
+    let end;
+    while ((end = buffer.indexOf('\n\n')) >= 0) {
+      const block = buffer.slice(0, end);
+      buffer = buffer.slice(end + 2);
+      let event = 'message';
+      let data = '';
+      for (const line of block.split('\n')) {
+        if (line.startsWith('event:')) event = line.slice(6).trim();
+        else if (line.startsWith('data:')) data += line.slice(5).trim();
+      }
+      yield { event, data: data ? JSON.parse(data) : null };
+    }
+  }
+}
+
+async function post(path, body, accept) {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: accept },
+    body: JSON.stringify(body ?? {}),
+  });
+  if (!response.ok) {
+    const json = await response.json().catch(() => null);
+    throw new Error(json?.error?.message ?? `HTTP ${response.status}`);
+  }
+  return response;
+}
+
+function setBusy(value) {
+  busy = value;
+  $('ask').disabled = value;
+  $('reindex').disabled = value;
+}
+
+function failActive(message) {
+  run.failed = true;
+  let first = null;
+  for (const [id, el] of nodeEls) {
+    if (el.dataset.status !== 'active') continue;
+    setNode(id, 'error', message.length > 60 ? `${message.slice(0, 57)}…` : message);
+    run[id] = { ...(run[id] ?? {}), error: message };
+    first ??= id;
+  }
+  if (layout === QUERY) {
+    run.streaming = false;
+    run.answerText = message;
+  } else {
+    run.error = message;
+  }
+  if (first) select(first);
+  renderResult();
+}
+
+/* ---------- consulta ---------- */
+
+const TEXT_COLOR = 'var(--fulltext)';
+const VECTOR_COLOR = 'var(--vector)';
+
+async function onTrace(e) {
+  switch (e.stage) {
+    case 'embedding':
+      run.embedding = e;
+      setNode('embedding', 'done', `${e.dimensions} dimensões · ${e.ms} ms`);
+      select('embedding');
+      await Promise.all([
+        flow('embedding', 'vector', { label: 'vetor', color: VECTOR_COLOR }),
+        flow('embedding', 'text', { label: 'texto', color: TEXT_COLOR }),
+      ]);
+      setNode('vector', 'active', 'buscando…');
+      setNode('text', 'active', 'buscando…');
+      return;
+
+    case 'vector-search': {
+      run.vector = e;
+      const kept = e.hits.filter((h) => h.kept).length;
+      setNode('vector', 'done', `${e.hits.length} candidatos · ${kept} ≥ ${e.minSimilarity}`);
+      select('vector');
+      return;
+    }
+
+    case 'text-search':
+      run.text = e;
+      if (!e.enabled) {
+        setNode('text', 'skipped', 'desligada');
+      } else {
+        setNode('text', 'done', `${e.hits.length} candidatos · ${e.ms} ms`);
+        select('text');
+      }
+      return;
+
+    case 'fusion': {
+      run.fusion = e;
+      setNode('fusion', 'active');
+      const kept = run.vector?.hits.filter((h) => h.kept).length ?? 0;
+      await Promise.all([
+        flow('vector', 'fusion', { label: `${kept} trechos`, color: VECTOR_COLOR }),
+        run.text?.enabled ? flow('text', 'fusion', { label: `${run.text.hits.length} trechos`, color: TEXT_COLOR }) : null,
+      ]);
+      setNode('fusion', 'done', e.hits.length ? `top ${e.hits.length}` : 'nada relevante');
+      select('fusion');
+      return;
+    }
+
+    case 'prompt':
+      run.prompt = e;
+      await flow('fusion', 'prompt', { label: `${run.fusion?.hits.length ?? ''} trechos` });
+      setNode('prompt', 'done', `${e.system.length + e.user.length} caracteres`);
+      select('prompt');
+      return;
+
+    case 'generation':
+      if (!e.model) {
+        run.prompt = { skipped: true };
+        setNode('prompt', 'skipped', 'não montado');
+        setNode('llm', 'skipped', 'não chamado');
+        setNode('answer', 'active', 'não encontrado');
+        select('llm');
+        return;
+      }
+      await flow('prompt', 'llm', { label: 'prompt' });
+      setNode('llm', 'active', e.model);
+      select('llm');
+      return;
+  }
+}
+
+/** Fora da fila de animação: o texto aparece assim que chega. */
+function onToken(text) {
+  if (!run.answerStarted) {
+    run.answerStarted = true;
+    run.fastForward = true;
+    run.streaming = true;
+    enqueue(() => setNode('answer', 'active', 'escrevendo…'));
+  }
+  run.answerText = (run.answerText ?? '') + text;
+  scheduleAnswer();
+}
+
+function onDone() {
+  run.streaming = false;
+  const llm = run.llm;
+  if (llm?.model) setNode('llm', 'done', `${llm.model} · ${((llm.end - llm.start) / 1000).toFixed(1)} s`);
+  setNode('answer', 'done', run.found ? `${run.sources.length} fontes` : 'não encontrado');
+  if (selected === 'llm') renderInspector();
+  renderResult();
+}
+
+async function ask(question) {
+  if (busy || !question) return;
+  const collection = $('collection').value;
+  if (!collection) return;
+  setBusy(true);
+  renderDiagram(QUERY);
+  run = { question: { question }, started: true };
+  select('question');
+  renderResult();
+
+  enqueue(async () => {
+    setNode('question', 'done', `${question.length} caracteres`);
+    await flow('question', 'embedding', { label: 'texto' });
+    setNode('embedding', 'active', 'gerando vetor…');
+  });
+
+  try {
+    const response = await post(`/collections/${encodeURIComponent(collection)}/queries`, { question }, 'text/event-stream');
+    for await (const { event, data } of readSse(response)) {
+      // Tempos do LLM medidos na chegada, não no ritmo da animação.
+      const now = performance.now();
+      if (event === 'trace') {
+        if (data.stage === 'generation') run.llm = { model: data.model, start: now, tokens: 0 };
+        enqueue(() => onTrace(data));
+      } else if (event === 'sources') {
+        enqueue(() => { run.sources = data.sources; run.found = data.found; renderResult(); });
+      } else if (event === 'token') {
+        if (run.llm) {
+          run.llm.tokens++;
+          run.llm.firstToken ??= now;
+        }
+        onToken(data.text);
+      } else if (event === 'done') {
+        if (run.llm) run.llm.end = now;
+        enqueue(onDone);
+      } else if (event === 'error') {
+        enqueue(() => failActive(data.message));
+      }
+    }
+  } catch (error) {
+    enqueue(() => failActive(error.message));
+  }
+  await idle();
+  setBusy(false);
+}
+
+/* ---------- ingestão ---------- */
+
+const INGEST_TAGS = { added: 'novo', updated: 'atualizado', unchanged: 'sem mudança', empty: 'vazio', removed: 'removido' };
+
+function ingestLog() {
+  const log = run.log ?? [];
+  if (log.length === 0) return '';
+  return `<h4>Documentos</h4><ul class="log">${log.map((item) =>
+    `<li><span class="tag ${item.type}">${INGEST_TAGS[item.type]}</span>${esc(item.id)}${item.chunks ? ` · ${item.chunks} trechos` : ''}</li>`).join('')}</ul>`;
+}
+
+function renderIngestResult() {
+  const r = run.report;
+  if (run.error) {
+    resultEl.innerHTML = `<h3>Ingestão</h3><div class="answer error">${esc(run.error)}</div>`;
+    return;
+  }
+  if (!r) {
+    resultEl.innerHTML = `<h3>Ingestão</h3><p class="explain">Indexando <b>${esc(run.collection ?? '')}</b>… ${run.counts?.docs ?? 0} documentos processados.</p>`;
+    return;
+  }
+  const cell = (n, label) => `<div><b>${n}</b><span>${label}</span></div>`;
+  resultEl.innerHTML = `<h3>Ingestão concluída</h3>
+    <div class="report">${cell(r.added, 'novos')}${cell(r.updated, 'atualizados')}${cell(r.unchanged, 'sem mudança')}${cell(r.empty, 'vazios')}${cell(r.removed, 'removidos')}${cell(r.chunks, 'trechos gravados')}</div>
+    <p class="explain" style="margin-top:12px">Rode de novo sem mudar nada: todos caem em "sem mudança" e nenhum embedding é gerado.</p>`;
+}
+
+const shortName = (id) => id.split('/').pop();
+
+async function onProgress(e) {
+  const c = run.counts;
+  run.log.push(e.type === 'removed' ? { type: 'removed', id: e.documentIds.join(', ') } : { type: e.type, id: e.documentId, chunks: e.chunks });
+
+  if (e.type === 'removed') {
+    c.removed += e.documentIds.length;
+    setNode('store', 'active', `+${c.added} novos · ~${c.updated} · −${c.removed}`);
+  } else {
+    const label = shortName(e.documentId);
+    c.docs++;
+    await flow('folder', 'loader', { label });
+    setNode('loader', 'active', `${c.docs} documentos`);
+    await flow('loader', 'hash', { label });
+
+    if (e.type === 'unchanged') {
+      c.unchanged++;
+      await flow('hash', 'skip', { label, color: 'var(--faint)' });
+    } else if (e.type === 'empty') {
+      c.empty++;
+      await flow('hash', 'chunker', { label });
+      await flow('chunker', 'skip', { label: 'sem texto', color: 'var(--warn)' });
+    } else {
+      c[e.type]++;
+      c.chunks += e.chunks;
+      await flow('hash', 'chunker', { label });
+      setNode('chunker', 'active', `${c.chunks} trechos`);
+      await flow('chunker', 'embedder', { label: `${e.chunks} trechos` });
+      setNode('embedder', 'active', `${c.chunks} vetores`);
+      await flow('embedder', 'store', { label: `${e.chunks} vetores`, color: VECTOR_COLOR });
+      setNode('store', 'active', `+${c.added} novos · ~${c.updated} atualizados`);
+    }
+    setNode('hash', 'active', `${c.added + c.updated + c.empty} mudaram · ${c.unchanged} iguais`);
+    setNode('skip', c.unchanged + c.empty ? 'done' : 'idle', `${c.unchanged} sem mudança · ${c.empty} vazios`);
+  }
+  renderInspector();
+  renderResult();
+}
+
+function onIngestDone(report) {
+  run.report = report;
+  for (const id of ['folder', 'loader', 'hash', 'chunker', 'embedder', 'store']) {
+    const status = nodeEls.get(id).dataset.status;
+    if (status === 'active' || status === 'idle') setNode(id, 'done');
+  }
+  if (report.added + report.updated === 0) {
+    setNode('chunker', 'skipped', 'nada a fazer');
+    setNode('embedder', 'skipped', 'nenhum embedding');
+  }
+  select('store');
+  renderResult();
+}
+
+async function reindex() {
+  if (busy) return;
+  const collection = $('collection').value;
+  if (!collection) return;
+  setBusy(true);
+  renderDiagram(INGEST);
+  run = { collection, log: [], counts: { docs: 0, added: 0, updated: 0, unchanged: 0, empty: 0, removed: 0, chunks: 0 } };
+  setNode('folder', 'active', `collections/${collection}`);
+  select('folder');
+  renderResult();
+
+  try {
+    const response = await post(`/collections/${encodeURIComponent(collection)}/ingestions`, {}, 'text/event-stream');
+    for await (const { event, data } of readSse(response)) {
+      if (event === 'progress') enqueue(() => onProgress(data));
+      else if (event === 'done') enqueue(() => onIngestDone(data));
+      else if (event === 'error') enqueue(() => failActive(data.message));
+    }
+  } catch (error) {
+    enqueue(() => failActive(error.message));
+  }
+  await idle();
+  setBusy(false);
+}
+
+/* ---------- início ---------- */
+
+function renderExamples() {
+  const examples = EXAMPLES[$('collection').value] ?? [];
+  $('examples').innerHTML = examples.length
+    ? `<div class="examples-title">Exemplos</div><div class="examples">${examples.map((q) => `<button type="button" class="example">${esc(q)}</button>`).join('')}</div>`
+    : '';
+}
+
+$('examples').addEventListener('click', (event) => {
+  const example = event.target.closest('.example');
+  if (!example) return;
+  $('question').value = example.textContent;
+  ask(example.textContent);
+});
+
+$('ask-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  ask($('question').value.trim());
+});
+
+$('reindex').addEventListener('click', reindex);
+
+$('collection').addEventListener('change', () => {
+  storage('rag-kit:collection', $('collection').value);
+  renderExamples();
+});
+
+async function loadCollections() {
+  const status = $('api-status');
+  try {
+    const response = await fetch('/collections');
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const { data } = await response.json();
+    status.dataset.ok = 'true';
+    const remembered = storage('rag-kit:collection');
+    $('collection').innerHTML = data.map((name) => `<option value="${esc(name)}">${esc(name)}</option>`).join('');
+    if (data.includes(remembered)) $('collection').value = remembered;
+    if (data.length === 0) {
+      $('banner').textContent = 'Nenhuma coleção: crie uma pasta em collections/ com seus arquivos.';
+      $('banner').hidden = false;
+    }
+    renderExamples();
+  } catch {
+    status.dataset.ok = 'false';
+    $('banner').textContent = 'A API não respondeu. Rode "bun run api" e recarregue a página.';
+    $('banner').hidden = false;
+    setBusy(true);
+  }
+}
+
+renderDiagram(QUERY);
+renderInspector();
+renderResult();
+loadCollections();
+</script>
+</body>
+</html>
