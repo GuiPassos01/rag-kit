@@ -1,0 +1,16 @@
+[
+  { "question": "Como faço para encerrar meu plano?", "expected": ["cancelamento-de-assinatura.md"] },
+  { "question": "Me arrependi da compra feita ontem, recebo meu dinheiro de volta?", "expected": ["cancelamento-de-assinatura.md"] },
+  { "question": "Por quanto tempo meus dados ficam guardados depois que eu cancelo?", "expected": ["cancelamento-de-assinatura.md"] },
+  { "question": "Quanto custa o plano para uma equipe de 3 pessoas?", "expected": ["planos-e-precos.md"] },
+  { "question": "Tem desconto se eu pagar o ano inteiro?", "expected": ["planos-e-precos.md"] },
+  { "question": "O que significa o erro PAG-402?", "expected": ["pagamentos-e-faturas.md"] },
+  { "question": "Posso pagar com Pix todo mês?", "expected": ["pagamentos-e-faturas.md"] },
+  { "question": "Preciso da nota no CNPJ da minha empresa", "expected": ["pagamentos-e-faturas.md"] },
+  { "question": "Meus clientes estão faltando muito, como aviso eles antes do horário?", "expected": ["lembretes-whatsapp.md"] },
+  { "question": "Apareceu SYNC-110 no calendário", "expected": ["integracao-google-agenda.md"] },
+  { "question": "A recepcionista consegue ver quanto o salão faturou?", "expected": ["seguranca-e-acesso.md"] },
+  { "question": "Perdi o celular com o autenticador, como entro na conta?", "expected": ["seguranca-e-acesso.md"] },
+  { "question": "Uma cliente pediu para apagar as informações dela", "expected": ["exportacao-e-lgpd.md"] },
+  { "question": "Como baixo uma planilha com todos os meus clientes?", "expected": ["exportacao-e-lgpd.md"] }
+]
