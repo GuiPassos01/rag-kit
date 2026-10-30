@@ -5,6 +5,7 @@
   "scripts": {
     "rag": "bun src/cli/main.ts",
     "api": "bun src/api/server.ts",
+    "mcp": "bun src/mcp/server.ts",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:reset": "docker compose down -v && docker compose up -d",
@@ -12,7 +13,9 @@
     "test": "bun test"
   },
   "dependencies": {
-    "unpdf": "2.0.0"
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "unpdf": "2.0.0",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/bun": "1.4.4",
