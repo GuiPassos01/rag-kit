@@ -109,6 +109,28 @@ curl -N -X POST localhost:3000/collections/central-de-ajuda/queries \
   -d '{"question": "O que é o erro PAG-402?"}'
 ```
 
+## MCP
+
+`bun run mcp` sobe um servidor [MCP](https://modelcontextprotocol.io) via stdio, para usar o rag-kit de dentro do Claude Code, Claude Desktop, Cursor etc. Tools:
+
+| Tool | O que faz |
+|---|---|
+| `list_collections` | Lista as coleções |
+| `search` | Busca híbrida e devolve os trechos com a fonte, sem passar pelo LLM. O LLM do cliente responde a partir deles |
+| `ask` | Pipeline completo: busca e gera a resposta com o LLM do `.env` |
+
+`search` e `ask` recebem `collection`, `question` e, opcionalmente, `topK` e `filter`. A ingestão continua pela CLI ou pela API. O `.env` e a pasta `collections/` são lidos do diretório de trabalho, por isso o `--cwd`:
+
+```bash
+claude mcp add rag-kit -- bun --cwd /caminho/do/rag-kit src/mcp/server.ts
+```
+
+No Claude Desktop/Cursor, o equivalente em JSON:
+
+```json
+{ "mcpServers": { "rag-kit": { "command": "bun", "args": ["--cwd", "/caminho/do/rag-kit", "src/mcp/server.ts"] } } }
+```
+
 ## Avaliação
 
 `evaluations/<coleção>.json` lista perguntas e o documento que deveria ser encontrado:
@@ -178,6 +200,7 @@ O plano gratuito do Gemini limita requisições por minuto. As chamadas tentam d
 src/core/            o RAG: tipos, loaders, chunkers, embedders, llms, stores, retrieval, eval
 src/cli/             bun run rag
 src/api/             bun run api
+src/mcp/             bun run mcp
 public/index.html    a interface (servida pela API em /)
 src/rag.config.ts    o "plug": monta o pipeline a partir do .env (src/env.ts valida as variáveis)
 test/                testes (embedder e LLM falsos, sem servidor)
