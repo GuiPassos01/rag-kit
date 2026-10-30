@@ -172,7 +172,7 @@ Tudo pelo `.env` (veja [.env.example](.env.example)). As mais importantes:
 | `LLM_MODEL` | `gemini-3.5-flash-lite` | Modelo que escreve a resposta |
 | `EMBEDDING_MODEL` / `EMBEDDING_DIMENSIONS` | `gemini-embedding-2` / `768` | Trocar qualquer um exige `bun run db:reset` |
 | `RAG_TOP_K` | `5` | Quantos trechos vão para o LLM |
-| `RAG_MIN_SIMILARITY` | `0.4` | Abaixo disso, o trecho é descartado. Depende do modelo de embedding |
+| `RAG_MIN_SIMILARITY` | `0.4` | Abaixo disso, o trecho é descartado. Depende do modelo de embedding: para o `gemini-embedding-2`, o `.env.example` usa `0.65`, medido com o eval |
 | `RAG_HYBRID` | `true` | Liga a busca full-text junto com a vetorial |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `1200` / `200` | Em caracteres (~4 por token em português) |
 
